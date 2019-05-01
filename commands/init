@@ -22,8 +22,9 @@ fi
 # echo -e "Installing dependencies..."
 # fin install-dependencies
 
-# Import database
+# Import database / files
 fin db-import
+fin file-import
 
 # Install and run WP CLI Login.
 # fin wp-login
