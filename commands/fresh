@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+## Initialize a Docksal powered Wordpress site
+##
+## Usage: fin init
+
+# Abort if anything fails
+set -e
+
+#-------------------------- Execution --------------------------------
+
+if [[ "$PROJECT_ROOT" == "" ]]; then
+	echo_red "\$PROJECT_ROOT is not set"
+	exit 1
+fi
+
+if [[ $DOCKER_RUNNING == "true" ]]; then
+	echo -e "${green_bg} Step 1 ${NC}${green} Recreating services...${NC}"
+	fin reset -f
+else
+	echo -e "${green_bg} Step 1 ${NC}${green} Creating services...${NC}"
+	fin up
+fi
+
+echo "Waiting 10s for MySQL to initialize...";
+sleep 10
+
+# Project initialization steps
+echo -e "${green_bg} Step 2 ${NC}${green} Generating wp-config.php...${NC}"
+fin generate-config
+
+if ! $(wp core is-installed); then
+    echo -e "${green_bg} Step 3 ${NC}${green} Installing site...${NC}"
+    time fin site-install
+fi
+
+if is_windows; then
+	echo_green "Add ${VIRTUAL_HOST} to your hosts file (/etc/hosts), e.g.:"
+	echo_green "192.168.64.100  ${VIRTUAL_HOST}"
+	echo
+fi
+
+echo -en "${green_bg} DONE! ${NC} "
+echo -e "Open ${yellow}http://${VIRTUAL_HOST}${NC} in your browser to verify the setup."
+echo -e "Admin panel: ${yellow}http://${VIRTUAL_HOST}/wp-admin${NC}. User/password: ${yellow}${WP_ADMIN_USER}/${WP_ADMIN_PASS}${NC}"
+
+#-------------------------- END: Execution --------------------------------

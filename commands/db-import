@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+## Import database from a .sql file.
+##
+## Usage: fin db-import [--refresh]
+##
+## --refresh - force dump download even if one exists locally
+##
+## Examples:
+##
+## fin db-import
+
+set -e  # Abort if anything fails
+#set -x  # Echo commands
+
+cd "${PROJECT_ROOT}"
+
+local_dump_file=".docksal/database/db.sql"
+
+# Drop local dump if requested
+[[ "${1}" == "--refresh" ]] && [[ -f "$local_dump_file" ]] && rm -f "$local_dump_file"
+
+# If no local dump file, force downloading one.
+if [[ ! -f "$local_dump_file" ]]; then
+	# Make sure there's no gzipped copy.
+	[[ -f "${local_dump_file}.gz" ]] && rm -f "${local_dump_file}.gz"
+	# Check for Pantheon vars.
+	if [[ -z $TERMINUS_SITE ]] || [[ -z $TERMINUS_ENV ]]; then
+		echo -e "${red}Error${NC}: Terminus keys missing for Pantheon. Add these variables to ${yellow}.docksal/docksal-local.env${NC}."
+		exit 0;
+	fi
+	# Terminus : Login
+	echo -e "Authenticating with ${yellow}Pantheon${NC} using machine token..."
+	fin terminus auth:login --quiet --machine-token=$TERMINUS_MACHINE_TOKEN
+	# Terminus : Get AWS S3 URL of last DB Dump
+	echo -e "Retrieving dump file..."
+	fin terminus backup:get --element=db --to="${local_dump_file}.gz" $TERMINUS_SITE.$TERMINUS_ENV
+	if [ ! $? -eq 0 ]; then
+		echo -e "No backup available on ${green}$TERMINUS_SITE.$TERMINUS_ENV${NC}, generating new backup..."
+		# Terminus : Create New DB Backup
+		fin terminus backup:create --element=db --keep-for=3 --quiet $TERMINUS_SITE.$TERMINUS_ENV
+		terminus_dump=$(fin terminus backup:get --element=db --to="${local_dump_file}.gz" --quiet $TERMINUS_SITE.$TERMINUS_ENV)
+	fi
+
+	# Extract database.
+	echo -e "Extracting database from ${green}${local_dump_file}.gz${NC}"
+	gunzip -dq ${local_dump_file}.gz && rm -f ${local_dump_file}.gz
+fi
+
+# If we still don't have a dump here, show an error message and exit
+if [[ ! -f "$local_dump_file" ]]; then
+	echo -e "Please download and put the database dump (.sql) in ${local_dump_file}"
+	exit 1
+fi
+
+# Import database
+echo "Using ${local_dump_file}"
+fin db import --progress "$local_dump_file"
+
+# Set options
+fin wp option update siteurl "http://${VIRTUAL_HOST}"
+fin wp option update home "http://${VIRTUAL_HOST}"

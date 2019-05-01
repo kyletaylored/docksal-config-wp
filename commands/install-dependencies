@@ -1,0 +1,22 @@
+#!/bin/bash
+
+## Install dependencies in custom themes.
+
+# List of themes to exclude from processing.
+THEME_EXCLUDE=('twentynineteen' 'twentyeighteen')
+
+# Find npm package files in all themes.
+THEME_PATH="${PROJECT_ROOT}/${DOCROOT}/wp-content/themes"
+for DIR in $(find ${THEME_PATH} -maxdepth 2 -name "package.json" -exec dirname {} \;)
+do
+	THEME_NAME=$(echo ${DIR##*/})
+	match=$(echo "${THEME_EXCLUDE[@]:0}" | grep -o $THEME_NAME)
+
+	# Process if actual directory and not excluded.
+	if [[ -d $DIR ]] && [[ -z $match ]]; then
+		THEME_NAME=$(echo ${DIR##*/})
+		echo -e "Processing... ${green}${THEME_NAME}${NC}"
+		cd ${THEME_PATH}/${THEME_NAME}
+		npm install --silent
+	fi
+done

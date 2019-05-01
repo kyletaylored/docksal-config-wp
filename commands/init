@@ -1,0 +1,36 @@
+#!/bin/bash
+
+## Initialize site using existing config.
+
+# Start the containers
+fin project start
+
+# Check if WordPress is already installed.
+# If not, go through installation.
+# FRESH_CHECK=$(fin wp core --path="$WEBROOT" --quiet is-installed)
+# [[ $FRESH_CHECK -eq 0 ]] && fin fresh
+
+# Check for config
+echo -e "Checking for ${yellow}wp-config-local.php${NC}..."
+LOCAL_SETTINGS_FILE="${PROJECT_ROOT}/wp-config-local.php"
+if [[ ! -f $LOCAL_SETTINGS_FILE ]]; then
+	echo_red "Missing local config, generating new config file..."
+	fin generate-config
+fi
+
+# Install  Theme dependencies.
+# echo -e "Installing dependencies..."
+# fin install-dependencies
+
+# Import database
+fin db-import
+
+# Install and run WP CLI Login.
+# fin wp-login
+
+# create symlink to docroot.
+# fin exec "ln -s /var/www /var/www/docroot"
+
+# Clear cache
+fin wp cache flush --path=$WEBROOT
+echo -e "Login URL: ${yellow}http://${VIRTUAL_HOST}/wp-admin${NC}"

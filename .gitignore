@@ -1,0 +1,7 @@
+# Exclude local configuration overrides
+docksal-local.env
+docksal-local.yml
+
+# Exclude backups / source files
+*.gz
+*.sql

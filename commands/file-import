@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+## Import files from backup.
+##
+## Usage: fin file-import [--refresh]
+##
+## --refresh - force dump download even if one exists locally
+##
+## Examples:
+##
+## fin file-import
+
+set -e  # Abort if anything fails
+#set -x  # Echo commands
+
+cd "${PROJECT_ROOT}"
+
+local_dump_file=".docksal/files/files.tar.gz"
+
+# Drop local dump if requested
+[[ "${1}" == "--refresh" ]] && [[ -f "$local_dump_file" ]] && rm -f "$local_dump_file"
+
+# If no local dump file, force downloading one.
+if [[ ! -f "$local_dump_file" ]]; then
+	# Check for Pantheon vars.
+	if [[ -z $TERMINUS_SITE ]] || [[ -z $TERMINUS_ENV ]]; then
+		echo -e "${red}Error${NC}: Terminus keys missing for Pantheon. Add these variables to ${yellow}.docksal/docksal-local.env${NC}."
+		exit 0;
+	fi
+	# Terminus : Login
+	echo -e "Authenticating with ${yellow}Pantheon${NC} using machine token..."
+	fin terminus auth:login --quiet --machine-token=$TERMINUS_MACHINE_TOKEN
+
+	# Terminus : Get AWS S3 URL of last DB Dump
+	echo -e "Retrieving dump file..."
+	fin terminus backup:get --element=files --to=$local_dump_file $TERMINUS_SITE.$TERMINUS_ENV
+	if [ ! $? -eq 0 ]; then
+		echo -e "No backup available on ${green}$TERMINUS_SITE.$TERMINUS_ENV${NC}, generating new backup..."
+		# Terminus : Create New DB Backup
+		fin terminus backup:create --element=files --keep-for=3 --quiet $TERMINUS_SITE.$TERMINUS_ENV
+		terminus_dump=$(fin terminus backup:get --element=files --to=$local_dump_file --quiet $TERMINUS_SITE.$TERMINUS_ENV)
+	fi
+fi
+
+# If we still don't have a dump here, show an error message and exit
+if [[ ! -f "$local_dump_file" ]]; then
+	echo -e "Please download and put the file dump in ${local_dump_file}"
+	exit 1
+fi
+
+echo -e "Extracting files to ${yellow}wp-content/uploads${NC}"
+tar -xf $local_dump_file -C "${DOCROOT_PATH}/wp-content/uploads" --strip 1

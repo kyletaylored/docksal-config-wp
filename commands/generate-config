@@ -1,0 +1,48 @@
+#!/bin/bash
+
+## Generate wp-config.php file
+cd $PROJECT_ROOT
+
+# Rename Pantheon core instead of removing it.
+fin exec "mv wp-config.php wp-config-pantheon.php"
+fin exec "rm -f wp-config.php"
+
+# Generate wp-config.php
+fin wp core config --dbname="${MYSQL_DATABASE}" --dbuser="${MYSQL_USER}" --dbpass="${MYSQL_PASSWORD}" --dbhost="db" --extra-php <<PHP
+// Enable debugging
+define( 'WP_DEBUG', true );
+define( 'WP_DEBUG_LOG', true );
+
+// Fix permalinks
+define( 'WP_HOME',    'http://' . $_SERVER['HTTP_HOST'] );
+define( 'WP_SITEURL', 'http://' . $_SERVER['HTTP_HOST'] );
+
+// Disable autoupdates
+define("OTGS_DISABLE_AUTO_UPDATES", true);
+PHP
+
+# Move everything back.
+mv wp-config.php wp-config-local.php
+mv wp-config-pantheon.php wp-config.php
+
+read -d '' LOCAL_CONF << EOF
+/**
+ * Local configuration information.
+ *
+ * If you are working in a local/desktop development environment and want to
+ * keep your config separate, we recommend using a 'wp-config-local.php' file,
+ * which you should also make sure you .gitignore.
+ */
+if (file_exists(dirname(__FILE__) . '/wp-config-local.php') && !isset($_ENV['PANTHEON_ENVIRONMENT'])):
+  # IMPORTANT: ensure your local config does not include wp-settings.php
+  require_once(dirname(__FILE__) . '/wp-config-local.php');
+EOF
+
+# Make sure we include local config.
+# if [[ ! $(grep -q "wp-config-local.php" wp-config.php) ]]; then
+#     echo "wp-config-local.php include not found in wp-config.php"
+#     cat $LOCAL_CONF >> wp-config-local.php
+# fi
+
+# Remove duplicate wp-settings include or things start to break.
+sed -i "/require_once ABSPATH . 'wp-settings.php';/d" ./wp-config-local.php
