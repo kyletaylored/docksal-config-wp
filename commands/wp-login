@@ -3,15 +3,20 @@
 ## Install and run WP CLI Login plugin.
 
 # Execute
-fin wp plugin is-installed wp-cli-login-server --path=$WEBROOT
+echo -e "Checking for ${yellow}wp-cli-login-server${NC} plugin..."
+WCLS=$(fin wp plugin is-installed wp-cli-login-server --path=$WEBROOT)
+
 # Install if plugin missing.
-if [[ $? -eq 1 ]]; then
-	echo -e "Installing WP CLI Login..."
+if [[ $WCLS == "" ]]; then
+	echo -e "${yellow}WP CLI Login${NC} not detected, installing..."
 	fin wp package update
 	fin wp package install aaemnnosttv/wp-cli-login-command --path=$WEBROOT
+else
+	echo -e "${green}WP CLI Login${NC} detected!"
 fi
-# fin wp login install --activate --yes --path=$WEBROOT
+
+fin wp login install --activate --yes --path=$WEBROOT
 
 # Login as admin user
 echo -e "${green}Generating login link for admin...${NC}"
-fin wp user one-time-login 1
+fin wp login as 1 --path=$WEBROOT --url=http://${VIRTUAL_HOST}
